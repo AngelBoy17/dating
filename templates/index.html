@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог анкет</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .profile-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .photo-container {
+            position: relative;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .photo {
+            width: 100%;
+            max-width: 500px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .photo::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
+                        linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%),
+                        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .warning {
+            color: red;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .timer {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="profiles"></div>
+
+    <script>
+        // Защита от скриншотов
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p')) {
+                e.preventDefault();
+            }
+        });
+
+        // Отключаем контекстное меню
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // Отключаем перетаскивание изображений
+        document.addEventListener('dragstart', function(e) {
+            e.preventDefault();
+        });
+
+        // Функция для форматирования времени
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Функция для загрузки профилей
+        async function loadProfiles() {
+            const response = await fetch('/api/profiles');
+            const profiles = await response.json();
+            const container = document.getElementById('profiles');
+            
+            profiles.forEach(profile => {
+                const card = document.createElement('div');
+                card.className = 'profile-card';
+                card.innerHTML = `
+                    <h2>${profile.name}</h2>
+                    <p>Страна: ${profile.country}</p>
+                    <p>Город: ${profile.city}</p>
+                    <button onclick="viewProfile(${profile.id})">Просмотреть профиль</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Функция для просмотра профиля
+        async function viewProfile(profileId) {
+            const response = await fetch(`/api/profile/${profileId}`);
+            const profile = await response.json();
+            
+            const photosResponse = await fetch(`/api/photos/${profileId}`);
+            const { photos } = await photosResponse.json();
+            
+            const container = document.getElementById('profiles');
+            container.innerHTML = `
+                <div class="profile-card">
+                    <h2>${profile.name}</h2>
+                    <p>Страна: ${profile.country}</p>
+                    <p>Город: ${profile.city}</p>
+                    <p>Дата рождения: ${profile.birthdate}</p>
+                    <p>Telegram: <a href="${profile.telegram}" target="_blank">Написать</a></p>
+                    <div class="warning">⚠️ Фотографии будут доступны только 5 минут!</div>
+                    <div class="timer" id="timer">5:00</div>
+                    <div class="photo-container">
+                        ${photos.map(photo => `<img src="${photo}" class="photo" alt="Фото профиля">`).join('')}
+                    </div>
+                    <button onclick="loadProfiles()">Вернуться к списку</button>
+                </div>
+            `;
+
+            // Запускаем таймер
+            let timeLeft = 300; // 5 минут
+            const timerElement = document.getElementById('timer');
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = formatTime(timeLeft);
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    loadProfiles();
+                }
+            }, 1000);
+        }
+
+        // Загружаем профили при загрузке страницы
+        loadProfiles();
+    </script>
+</body>
+</html> 
